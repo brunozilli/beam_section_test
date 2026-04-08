@@ -1,0 +1,24 @@
+# Eseguibili
+test_*
+*.exe
+*.out
+
+# File oggetto (compilazione)
+*.o
+*.mod
+
+# Backup
+*.bak
+*~
+
+# Directory temporanee
+temp/
+tmp/
+
+# IDE (configurazioni personali)
+.vscode/
+.idea/
+
+# File di output generati
+*.unv~
+*.dat
