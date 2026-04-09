@@ -14,18 +14,18 @@ OBJS = compute_section_properties.o \
 all: $(TARGETS)
 
 test_section: tests/test_section.f compute_section_properties.o
-$(FC) $(FFLAGS) -o $@ $^
+	$(FC) $(FFLAGS) -o $@ $^
 
 test_unv_reader: tests/test_unv_reader.f read_section_mesh_unv.o compute_section_properties.o
-$(FC) $(FFLAGS) -o $@ $^
+	$(FC) $(FFLAGS) -o $@ $^
 
 test_multi_section: tests/test_multi_section.f $(OBJS)
-$(FC) $(FFLAGS) -o $@ $^
+	$(FC) $(FFLAGS) -o $@ $^
 
 %.o: src/%.f
-$(FC) $(FFLAGS) -c $< -o $@
+	$(FC) $(FFLAGS) -c $< -o $@
 
 clean:
-rm -f *.o *.mod $(TARGETS)
+	rm -f *.o *.mod $(TARGETS)
 
 .PHONY: all clean
