@@ -4,7 +4,7 @@ c
 c Check and fix triangular mesh: orientation, degeneracy, validity.
 c Industrial-grade validation for FEM pipelines.
 c
-c Authors: (Expert) & Bruno Zilli & DeepSeek
+c Authors: Bruno Zilli & DeepSeek
 c Licence: MIT
 c=======================================================================
 
@@ -31,7 +31,7 @@ c     LOCALS
       double precision :: det, area
       double precision, parameter :: tol = 1.0d-14
 
-c     INIT
+c     Initialise
       A_total = 0.0d0
       n_flipped = 0
       n_degenerate = 0
@@ -43,12 +43,10 @@ c     INIT
          return
       endif
 
-c =========================
-c LOOP TRIANGLES
-c =========================
+c     Loop over all triangles
       do i = 1, ntri
 
-c       --- connectivity check
+c       Connectivity check
         i1 = conn(1,i)
         i2 = conn(2,i)
         i3 = conn(3,i)
@@ -61,7 +59,7 @@ c       --- connectivity check
             return
         endif
 
-c       --- coordinates
+c       Coordinates
         y1 = y(i1)
         z1 = z(i1)
         y2 = y(i2)
@@ -69,43 +67,33 @@ c       --- coordinates
         y3 = y(i3)
         z3 = z(i3)
 
-c       --- determinant (2x area)
+c       Determinant (2 x area)
         det = (y2 - y1)*(z3 - z1) - (y3 - y1)*(z2 - z1)
 
-c =========================
-c DEGENERATE TRIANGLE
-c =========================
+c       Check for degenerate triangle (zero area)
         if (dabs(det) .lt. tol) then
             n_degenerate = n_degenerate + 1
             cycle
         endif
 
-c =========================
-c ORIENTATION FIX
-c =========================
+c       Fix orientation: ensure all triangles have positive area
         if (det .lt. 0.0d0) then
-c         swap node 2 and 3
+c         Swap node 2 and node 3 to flip orientation
             tmp = conn(2,i)
             conn(2,i) = conn(3,i)
             conn(3,i) = tmp
 
             n_flipped = n_flipped + 1
-
-c         recompute det (optional)
             det = -det
         endif
 
-c =========================
-c AREA ACCUMULATION
-c =========================
+c       Accumulate total area
         area = 0.5d0 * det
         A_total = A_total + area
 
       end do
 
-c =========================
-c FINAL CHECK
-c =========================
+c     Final sanity check
       if (A_total .lt. tol) then
          write(*,*) 'WARNING: total area near zero'
          ierr = 3

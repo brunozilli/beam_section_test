@@ -2,17 +2,16 @@ c=======================================================================
 c compute_section_properties.f
 c
 c Compute cross-section properties (area, centroid, moments of inertia)
-c using a triangular mesh. Uses exact formulas for triangles.
+c using a triangular mesh. Uses exact analytical formulae for triangles.
 c
-c Authors: (Expert) & Bruno Zilli & DeepSeek
+c Authors: Bruno Zilli & DeepSeek
 c Licence: MIT
 c=======================================================================
 
-      subroutine compute_section_properties(
-     &     nnode_sec, ntri_sec,
-     &     conn_sec, y_sec, z_sec,
-     &     A, y_c, z_c,
-     &     I_y, I_z, I_yz, J_polar)
+      subroutine compute_section_properties(nnode_sec, ntri_sec,
+     &                                      conn_sec, y_sec, z_sec,
+     &                                      A, y_c, z_c,
+     &                                      I_y, I_z, I_yz, J_polar)
 
       implicit none
 
@@ -35,7 +34,7 @@ c     LOCALS
       double precision :: Iyy0, Izz0, Iyz0
       double precision :: det
 
-c     INIT
+c     Initialise output variables
       A   = 0.0d0
       S_y = 0.0d0
       S_z = 0.0d0
@@ -45,9 +44,7 @@ c     INIT
 
       if (ntri_sec .le. 0) return
 
-c =========================
-c LOOP TRIANGLES
-c =========================
+c     Loop over all triangular elements
       do i = 1, ntri_sec
 
         i1 = conn_sec(1,i)
@@ -61,26 +58,27 @@ c =========================
         y3 = y_sec(i3)
         z3 = z_sec(i3)
 
-c       ORIENTED AREA (NO ABS!)
+c       Oriented area (2 x area) - sign indicates orientation
         det = (y2 - y1)*(z3 - z1) - (y3 - y1)*(z2 - z1)
         area_tri = 0.5d0 * det
 
-c       ACCUMULATE AREA
+c       Accumulate total area and first moments
         A = A + area_tri
-
-c       FIRST MOMENTS
         S_y = S_y + area_tri * (y1 + y2 + y3) / 3.0d0
         S_z = S_z + area_tri * (z1 + z2 + z3) / 3.0d0
 
-c       SECOND MOMENTS (about origin)
+c       Second moments about origin (0,0) using exact triangle formulae
+c       Iyy = ∫ z² dA
         Iyy0 = area_tri *
      &        (z1*z1 + z2*z2 + z3*z3 +
      &         z1*z2 + z2*z3 + z3*z1) / 6.0d0
 
+c       Izz = ∫ y² dA
         Izz0 = area_tri *
      &        (y1*y1 + y2*y2 + y3*y3 +
      &         y1*y2 + y2*y3 + y3*y1) / 6.0d0
 
+c       Iyz = ∫ y*z dA
         Iyz0 = area_tri *
      &        (2.0d0*(y1*z1 + y2*z2 + y3*z3) +
      &         y1*z2 + y2*z1 +
@@ -93,30 +91,22 @@ c       SECOND MOMENTS (about origin)
 
       end do
 
-c =========================
-c CHECK AREA
-c =========================
+c     Check for valid area
       if (dabs(A) .lt. 1.0d-16) then
          write(*,*) 'ERROR: zero or invalid section area'
          return
       endif
 
-c =========================
-c CENTROID
-c =========================
+c     Section centroid
       y_c = S_y / A
       z_c = S_z / A
 
-c =========================
-c SHIFT TO CENTROID
-c =========================
+c     Parallel axis theorem (Steiner) - shift to centroid
       I_y  = I_y  - A * z_c*z_c
       I_z  = I_z  - A * y_c*y_c
       I_yz = I_yz - A * y_c*z_c
 
-c =========================
-c POLAR MOMENT (NOT TORSION!)
-c =========================
+c     Polar moment of inertia (not the torsion constant!)
       J_polar = I_y + I_z
 
       return

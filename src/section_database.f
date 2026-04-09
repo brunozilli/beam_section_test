@@ -1,7 +1,11 @@
 c=======================================================================
-c section_database.f - CORRECTED VERSION
+c section_database.f
+c
+c Multi-section database management. Stores cross-section properties
+c and avoids loading the same UNV file multiple times.
+c
 c Authors: Bruno Zilli & DeepSeek
-c MIT License
+c Licence: MIT
 c=======================================================================
 
       module section_database
@@ -39,6 +43,8 @@ c     Global database
 c=======================================================================
       subroutine init_section_database()
 c=======================================================================
+c     Initialise the database with empty/default values
+c=======================================================================
       implicit none
       integer :: i
       
@@ -67,7 +73,10 @@ c=======================================================================
       end subroutine init_section_database
       
 c=======================================================================
-       subroutine add_section(filename, section_name, E, G, section_id)
+      subroutine add_section(filename, section_name, E, G, section_id)
+c=======================================================================
+c     Load a section from a UNV file and add it to the database.
+c     If the same file is already loaded, returns the existing ID.
 c=======================================================================
       implicit none
       character(len=*), intent(in) :: filename
@@ -77,14 +86,13 @@ c=======================================================================
       
 c     Local variables
       integer :: i, nnode, ntri
-      double precision, allocatable :: nodes(:,:)
+      double precision, allocatable :: y(:), z(:)
       integer, allocatable :: conn(:,:)
-      double precision :: A, y_c, z_c, I_y, I_z, I_yz, J_approx
-c     Variabili per mesh checker
+      double precision :: A, y_c, z_c, I_yy, I_zz, I_yz, J_approx
       double precision :: A_total
       integer :: n_flipped, n_degenerate, ierr
       
-c     Check if section already exists
+c     Check if section already exists (by filename)
       do i = 1, num_sections
         if (trim(sections(i)%filename) .eq. trim(filename)) then
           section_id = i
@@ -93,46 +101,37 @@ c     Check if section already exists
       end do
       
 c     Allocate temporary arrays
-      allocate(nodes(3, MAX_NODES))
+      allocate(y(MAX_NODES))
+      allocate(z(MAX_NODES))
       allocate(conn(3, MAX_TRIANGLES))
       
 c     Read mesh from UNV file
-      call read_section_mesh_unv(filename, 
+      call read_section_mesh_unv(trim(filename), 
      &                           MAX_NODES, MAX_TRIANGLES,
      &                           nnode, ntri,
-     &                           nodes, conn)
+     &                           conn, y, z)
       
       if (ntri .eq. 0) then
         write(*,*) 'ERROR: No triangles found in file: ', filename
         section_id = -1
-        deallocate(nodes, conn)
+        deallocate(y, z, conn)
         return
       endif
       
-c     ================================================================
-c     CHECK AND FIX MESH (industrial grade)
-c     ================================================================
-      call check_and_fix_mesh(nnode, ntri, conn,
-     &                        nodes(1,:), nodes(2,:),
+c     Check and fix mesh orientation
+      call check_and_fix_mesh(nnode, ntri, conn, y, z,
      &                        A_total, n_flipped, n_degenerate, ierr)
       
-      if (ierr .ne. 0) then
-         write(*,*) 'ERROR: mesh validation failed for file: ', filename
-         section_id = -1
-         deallocate(nodes, conn)
-         return
-      endif
-      
-c     ================================================================
-c     COMPUTE SECTION PROPERTIES
-c     ================================================================
 c     Compute section properties
+c     Note: y = horizontal coordinate, z = vertical coordinate
+c     So: I_zz = ∫ y² dA is the weak axis (I_z)
+c         I_yy = ∫ z² dA is the strong axis (I_y)
       call compute_section_properties(nnode, ntri, conn,
-     &                                nodes(1,:), nodes(2,:),
+     &                                y, z,
      &                                A, y_c, z_c,
-     &                                I_y, I_z, I_yz, J_approx)
+     &                                I_zz, I_yy, I_yz, J_approx)
       
-c     Add to database
+c     Add to database with correct naming
       num_sections = num_sections + 1
       section_id = num_sections
       
@@ -142,8 +141,8 @@ c     Add to database
       sections(section_id)%A = A
       sections(section_id)%y_c = y_c
       sections(section_id)%z_c = z_c
-      sections(section_id)%I_y = I_y
-      sections(section_id)%I_z = I_z
+      sections(section_id)%I_y = I_yy    ! Strong axis (vertical bending)
+      sections(section_id)%I_z = I_zz    ! Weak axis (horizontal bending)
       sections(section_id)%I_yz = I_yz
       sections(section_id)%J = J_approx
       sections(section_id)%y_s = y_c
@@ -158,15 +157,18 @@ c     Print summary
       write(*,*) '  Name     = ', trim(section_name)
       write(*,*) '  File     = ', trim(filename)
       write(*,*) '  Area     = ', A
-      write(*,*) '  I_y      = ', I_y
-      write(*,*) '  I_z      = ', I_z
+      write(*,*) '  I_y      = ', I_yy
+      write(*,*) '  I_z      = ', I_zz
       
 c     Clean up
-      deallocate(nodes, conn)
+      deallocate(y, z, conn)
       
       end subroutine add_section
+      
 c=======================================================================
       subroutine get_section_props(section_id, props)
+c=======================================================================
+c     Retrieve section properties by ID
 c=======================================================================
       implicit none
       integer, intent(in) :: section_id
@@ -183,6 +185,8 @@ c=======================================================================
       
 c=======================================================================
       subroutine list_all_sections()
+c=======================================================================
+c     Print all sections in the database
 c=======================================================================
       implicit none
       integer :: i

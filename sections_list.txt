@@ -1,0 +1,5 @@
+# Section list for multi-section analysis
+# Format: ID Name filename.unv
+1  RECT        rect_10x20.unv
+2  Circle      circle_dia10.unv
+3  HEB200      HEB200_mm.unv
